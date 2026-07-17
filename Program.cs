@@ -1,4 +1,4 @@
-//   dotnet run -- <client.realm> [--classes A,B,C] [--out file.json]
+//   dotnet run -- <client.realm> [--classes A,B,C] [--query "RQL"] [--out file.json]
 
 using Realms;
 using Realms.Schema;
@@ -8,19 +8,22 @@ using System.Text.Json.Nodes;
 if (args.Length < 1)
 {
     Console.Error.WriteLine(
-        "usage: realmdump <client.realm> [--classes A,B,C] [--out file.json]");
+        "usage: realmdump <client.realm> [--classes A,B,C] [--query \"RQL\"] [--out file.json]");
     return 1;
 }
 
 string path = args[0];
 HashSet<string>? only = null;
 string? outPath = null;
+string? query = null;
 for (int i = 1; i < args.Length; i++)
 {
     if (args[i] == "--classes" && i + 1 < args.Length)
         only = new HashSet<string>(args[++i].Split(',', StringSplitOptions.RemoveEmptyEntries));
     else if (args[i] == "--out" && i + 1 < args.Length)
         outPath = args[++i];
+    else if ((args[i] == "--query" || args[i] == "-q") && i + 1 < args.Length)
+        query = args[++i];
 }
 
 if (!File.Exists(path))
@@ -110,7 +113,20 @@ foreach (var objSchema in realm.Schema)
     var arr = new JsonArray();
     try
     {
-        foreach (var obj in realm.DynamicApi.All(objSchema.Name))
+        var results = realm.DynamicApi.All(objSchema.Name);
+        if (query != null)
+        {
+            try
+            {
+                results = results.Filter(query);
+            }
+            catch (Exception e)
+            {
+                Console.Error.WriteLine($"  {objSchema.Name}: query not applicable, skipped ({e.Message})");
+                continue;
+            }
+        }
+        foreach (var obj in results)
             arr.Add(SerializeObject(obj, 0));
     }
     catch (ArgumentException)
