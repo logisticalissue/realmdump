@@ -29,6 +29,11 @@ if (!File.Exists(path))
     return 1;
 }
 
+// Realm resolves a relative path against its own default database directory,
+// not the process working directory, so a relative path that File.Exists finds
+// still fails to open. Resolve to an absolute path first.
+path = Path.GetFullPath(path);
+
 // Read-only + dynamic: open whatever schema the file declares, no models.
 var config = new RealmConfiguration(path)
 {
